@@ -32,6 +32,7 @@ import { classifyCaller } from './caller-classifier';
 import { ObservationReporter } from '../autofix/observation-reporter';
 import type { AutofixRecord } from '../autofix/autofix.types';
 import { sanitizeRequestHeaders } from './request-headers';
+import { buildProxySessionScope } from './proxy-session-scope';
 import {
   buildMetaHeaders,
   buildOpenAiCompatibleError,
@@ -219,9 +220,10 @@ export class ProxyController {
     res: ExpressResponse,
     apiMode: ProxyApiMode,
   ): Promise<void> {
-    const { tenantId } = req.ingestionContext;
+    const { agentId, tenantId } = req.ingestionContext;
     const body = req.body as Record<string, unknown>;
-    const sessionKey = this.extractSessionKey(req);
+    const sessionScope = buildProxySessionScope(tenantId, agentId, req.headers['x-session-key']);
+    const { sessionKey } = sessionScope;
     const traceId = this.extractTraceId(req);
     const requestId = uuid();
     const callerAttribution = classifyCaller(req.headers);
@@ -333,6 +335,8 @@ export class ProxyController {
         body,
         routingBody,
         sessionKey,
+        sessionCacheKey: sessionScope.cacheKey,
+        sessionMomentumKey: sessionScope.momentumKey,
         agentName: req.ingestionContext.agentName,
         signal: clientAbort.signal,
         specificityOverride,
@@ -432,7 +436,7 @@ export class ProxyController {
           metaHeaders,
           this.providerClient,
           this.signatureCache,
-          sessionKey,
+          sessionScope.cacheKey,
           this.thinkingCache,
           apiMode,
           this.reasoningCache,
@@ -445,7 +449,7 @@ export class ProxyController {
           metaHeaders,
           this.providerClient,
           this.signatureCache,
-          sessionKey,
+          sessionScope.cacheKey,
           this.thinkingCache,
           apiMode,
           this.reasoningCache,
@@ -760,8 +764,12 @@ export class ProxyController {
     return parts.length >= 2 ? parts[1] : undefined;
   }
 
-  private extractSessionKey(req: Request): string {
-    return (req.headers['x-session-key'] as string) || 'default';
+  private extractSessionKey(req: Request & { ingestionContext: IngestionContext }): string {
+    return buildProxySessionScope(
+      req.ingestionContext.tenantId,
+      req.ingestionContext.agentId,
+      req.headers['x-session-key'],
+    ).sessionKey;
   }
 
   private extractRequestedModel(body: Record<string, unknown> | undefined): string | undefined {

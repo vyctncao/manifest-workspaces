@@ -11,6 +11,7 @@ import { ReasoningContentCache } from '../reasoning-content-cache';
 import { ResponsesSseError } from '../chatgpt-adapter';
 import type { DiscoveredModel } from '../../../model-discovery/model-fetcher';
 import type { StartProviderAttempt } from '../proxy-types';
+import { buildProxySessionScope } from '../proxy-session-scope';
 
 /**
  * Flush enough microtasks for the recorder's fire-and-forget chain to
@@ -1738,12 +1739,15 @@ describe('ProxyController', () => {
 
     await controller.chatCompletions(req as never, res as never);
 
+    const scope = buildProxySessionScope('tenant-1', 'agent-1', 'my-session');
     expect(proxyService.proxyRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         agentId: 'agent-1',
         userId: 'user-1',
         body: req.body,
         sessionKey: 'my-session',
+        sessionCacheKey: scope.cacheKey,
+        sessionMomentumKey: scope.momentumKey,
         tenantId: 'tenant-1',
         agentName: 'test-agent',
         signal: expect.any(AbortSignal),
@@ -1774,12 +1778,15 @@ describe('ProxyController', () => {
 
     await controller.chatCompletions(req as never, res as never);
 
+    const scope = buildProxySessionScope('tenant-1', 'agent-1', undefined);
     expect(proxyService.proxyRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         agentId: 'agent-1',
         userId: 'user-1',
         body: req.body,
         sessionKey: 'default',
+        sessionCacheKey: scope.cacheKey,
+        sessionMomentumKey: undefined,
         tenantId: 'tenant-1',
         agentName: 'test-agent',
         signal: expect.any(AbortSignal),
