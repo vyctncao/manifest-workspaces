@@ -81,8 +81,10 @@ export interface ForwardOptions {
   body: Record<string, unknown>;
   chatBody?: Record<string, unknown>;
   apiMode?: ProxyApiMode;
-  /** Stable Manifest conversation/session key for provider prompt-cache affinity. */
+  /** Legacy caller session identifier. Provider cache affinity must use providerCacheKey. */
   sessionKey?: string;
+  /** Opaque, tenant/agent/session-scoped provider prompt-cache affinity key. */
+  providerCacheKey?: string;
   stream: boolean;
   signal?: AbortSignal;
   extraHeaders?: Record<string, string>;
@@ -122,6 +124,8 @@ export interface ProxyRequestOptions {
   sessionKey: string;
   /** Fixed-length tenant/agent/session key for internal replay caches. */
   sessionCacheKey: string;
+  /** Scoped provider prompt-cache key; absent when the caller omitted x-session-key. */
+  providerCacheKey?: string;
   /** Scoped routing-momentum key; absent when the caller omitted x-session-key. */
   sessionMomentumKey?: string;
   agentName?: string;

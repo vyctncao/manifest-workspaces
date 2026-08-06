@@ -177,6 +177,7 @@ interface ResolvedHealContext {
   tenantId: string;
   apiMode: ProxyApiMode;
   sessionKey: string;
+  providerCacheKey?: string;
   sessionMomentumKey?: string;
   signal?: AbortSignal;
   stream: boolean;
@@ -255,6 +256,7 @@ export class ProxyService {
       body,
       sessionKey,
       sessionCacheKey,
+      providerCacheKey,
       sessionMomentumKey,
       agentName,
       signal,
@@ -393,6 +395,7 @@ export class ProxyService {
       chatBody,
       stream,
       sessionKey,
+      providerCacheKey,
       signal,
       agentId,
       tenantId,
@@ -438,6 +441,7 @@ export class ProxyService {
                 tenantId,
                 apiMode: autofixApiMode,
                 sessionKey,
+                providerCacheKey,
                 sessionMomentumKey,
                 signal,
                 stream,
@@ -479,6 +483,7 @@ export class ProxyService {
         chatBody,
         stream,
         sessionKey,
+        providerCacheKey,
         sessionMomentumKey,
         signal,
         signatureLookup,
@@ -579,6 +584,7 @@ export class ProxyService {
           chatBody,
           stream,
           sessionKey,
+          providerCacheKey,
           sessionMomentumKey,
           signal,
           signatureLookup,
@@ -720,6 +726,7 @@ export class ProxyService {
       chatBody: this.toChatBody(ctx.apiMode, healedBody),
       stream: ctx.stream,
       sessionKey: ctx.sessionKey,
+      providerCacheKey: ctx.providerCacheKey,
       signal: ctx.signal,
       agentId: ctx.agentId,
       tenantId: ctx.tenantId,
@@ -944,6 +951,7 @@ export class ProxyService {
     chatBody?: ProxyRequestOptions['body'];
     stream: boolean;
     sessionKey: string;
+    providerCacheKey?: string;
     sessionMomentumKey?: string;
     signal?: AbortSignal;
     signatureLookup: SignatureLookup;
@@ -966,6 +974,7 @@ export class ProxyService {
       chatBody,
       stream,
       sessionKey,
+      providerCacheKey,
       sessionMomentumKey,
       signal,
       apiMode,
@@ -1012,6 +1021,7 @@ export class ProxyService {
       args.paramMergeContext,
       args.reasoningContentLookup,
       args.startProviderAttempt,
+      providerCacheKey,
     );
 
     this.recordTierIfScoring(sessionMomentumKey, resolved.tier);
