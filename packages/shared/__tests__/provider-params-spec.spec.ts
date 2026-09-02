@@ -411,6 +411,60 @@ describe('provider-params-spec', () => {
         omitProviderInapplicableParams({ thinking: { type: 'enabled' }, temperature: 0.2 }, specs),
       ).toEqual({ thinking: { type: 'enabled' } });
     });
+
+    it('cascades removals so a dependent param never outlives its parent', () => {
+      const effortGated = getProviderParamSpecs(
+        [
+          {
+            provider: 'anthropic',
+            authType: 'subscription',
+            model: 'claude-opus-5',
+            capabilities: ['text'],
+            params: [
+              {
+                path: 'thinking.type',
+                type: 'enum',
+                label: 'Thinking mode',
+                description: 'Controls Anthropic thinking mode.',
+                default: 'adaptive',
+                values: ['disabled', 'adaptive'],
+                group: 'reasoning',
+                applicability: { except: { 'output_config.effort': ['xhigh', 'max'] } },
+              },
+              {
+                path: 'thinking.display',
+                type: 'enum',
+                label: 'Thinking display',
+                description: 'Controls whether thinking is surfaced.',
+                default: 'omitted',
+                values: ['summarized', 'omitted'],
+                group: 'reasoning',
+                applicability: { only: { 'thinking.type': ['adaptive'] } },
+              },
+              {
+                path: 'output_config.effort',
+                type: 'enum',
+                label: 'Effort',
+                description: 'Controls output effort.',
+                default: 'high',
+                values: ['low', 'medium', 'high', 'xhigh', 'max'],
+                group: 'reasoning',
+              },
+            ],
+          },
+        ],
+        'anthropic',
+        'subscription',
+        'claude-opus-5',
+      );
+
+      expect(
+        omitProviderInapplicableParams(
+          { thinking: { type: 'adaptive', display: 'omitted' }, output_config: { effort: 'max' } },
+          effortGated,
+        ),
+      ).toEqual({ output_config: { effort: 'max' } });
+    });
   });
 
   describe('expandConfiguredParamDefaults', () => {

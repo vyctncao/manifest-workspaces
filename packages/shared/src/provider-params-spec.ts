@@ -254,11 +254,19 @@ export function omitProviderInapplicableParams<T extends Record<string, unknown>
   specs: readonly ProviderParamSpec[],
 ): T {
   let out: Record<string, unknown> | null = null;
-  for (const spec of specs) {
-    if (!hasPath(params, spec.path)) continue;
-    if (providerParamIsApplicable(spec, params)) continue;
+  // Applicability rules chain: `thinking.display` only applies while
+  // `thinking.type` is adaptive, and `thinking.type` itself drops out at the
+  // top effort levels. Re-scan the trimmed values after every removal so a
+  // dependent param never outlives the param it depends on and leaves the
+  // provider holding a half-built object it rejects.
+  for (;;) {
+    const values = out ?? params;
+    const inapplicable = specs.find(
+      (spec) => hasPath(values, spec.path) && !providerParamIsApplicable(spec, values),
+    );
+    if (!inapplicable) break;
     out ??= structuredCloneRecord(params);
-    deletePath(out, spec.path);
+    deletePath(out, inapplicable.path);
   }
   return (out ?? params) as T;
 }

@@ -2522,6 +2522,45 @@ describe('Anthropic Adapter', () => {
       expect(countCacheControls(body)).toBe(4);
     });
 
+    it('drops empty web-search domain filters', () => {
+      const result = applyAnthropicMessagesMutations({
+        messages: [{ role: 'user', content: 'hi' }],
+        tools: [
+          {
+            type: 'web_search_20250305',
+            name: 'web_search',
+            allowed_domains: [],
+            blocked_domains: [],
+          },
+        ],
+      });
+
+      expect(result.tools).toEqual([
+        {
+          type: 'web_search_20250305',
+          name: 'web_search',
+          cache_control: { type: 'ephemeral' },
+        },
+      ]);
+    });
+
+    it('keeps populated web-search domain filters', () => {
+      const result = applyAnthropicMessagesMutations({
+        messages: [{ role: 'user', content: 'hi' }],
+        tools: [
+          {
+            type: 'web_search_20250305',
+            name: 'web_search',
+            allowed_domains: ['anthropic.com'],
+          },
+        ],
+      });
+
+      expect((result.tools as Array<Record<string, unknown>>)[0].allowed_domains).toEqual([
+        'anthropic.com',
+      ]);
+    });
+
     it('never adds cache_control directly to a deferred tool', () => {
       const result = applyAnthropicMessagesMutations({
         messages: [{ role: 'user', content: 'hi' }],

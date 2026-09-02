@@ -131,6 +131,61 @@ describe('applyRequestParamDefaults', () => {
     expect(merged).toEqual({ messages: [], temperature: 0.2 });
   });
 
+  it('drops the whole thinking object when the top effort levels retire it', () => {
+    const effortSpecs: readonly ProviderParamSpec[] = [
+      {
+        provider: 'anthropic',
+        authType: 'subscription',
+        model: 'claude-opus-5',
+        path: 'thinking.type',
+        type: 'enum',
+        label: 'Thinking mode',
+        description: 'Controls Anthropic thinking mode.',
+        default: 'adaptive',
+        values: ['disabled', 'adaptive'],
+        group: 'reasoning',
+        applicability: { except: { 'output_config.effort': ['xhigh', 'max'] } },
+      },
+      {
+        provider: 'anthropic',
+        authType: 'subscription',
+        model: 'claude-opus-5',
+        path: 'thinking.display',
+        type: 'enum',
+        label: 'Thinking display',
+        description: 'Controls whether thinking is surfaced.',
+        default: 'omitted',
+        values: ['summarized', 'omitted'],
+        group: 'reasoning',
+        applicability: { only: { 'thinking.type': ['adaptive'] } },
+      },
+      {
+        provider: 'anthropic',
+        authType: 'subscription',
+        model: 'claude-opus-5',
+        path: 'output_config.effort',
+        type: 'enum',
+        label: 'Effort',
+        description: 'Controls output effort.',
+        default: 'high',
+        values: ['low', 'medium', 'high', 'xhigh', 'max'],
+        group: 'reasoning',
+      },
+    ];
+    // A leftover `thinking: { display: 'omitted' }` has no `type`, and
+    // Anthropic rejects it with `thinking.type: Field required`.
+    const body: Record<string, unknown> = {
+      messages: [],
+      thinking: { type: 'adaptive', display: 'omitted' },
+    };
+    const merged = applyRequestParamDefaults(
+      body,
+      { output_config: { effort: 'max' } },
+      effortSpecs,
+    );
+    expect(merged).toEqual({ messages: [], output_config: { effort: 'max' } });
+  });
+
   it('does not mutate the inputs', () => {
     const body: Record<string, unknown> = { messages: [] };
     const defaults = { thinking: { type: 'enabled' as const } };

@@ -126,6 +126,21 @@ function isDeferredTool(block: Record<string, unknown> | undefined): boolean {
   return block?.defer_loading === true;
 }
 
+/**
+ * Anthropic's server-side web tools reject an empty domain filter ("Empty list
+ * of domains is ambiguous. Provide at least one domain or null."). An empty
+ * list expresses no filtering intent, so drop it instead of forwarding a
+ * request the provider will refuse.
+ */
+const EMPTY_LIST_TOOL_FILTERS = ['allowed_domains', 'blocked_domains'] as const;
+
+function stripEmptyDomainFilters(tool: Record<string, unknown>): void {
+  for (const key of EMPTY_LIST_TOOL_FILTERS) {
+    const value = tool[key];
+    if (Array.isArray(value) && value.length === 0) delete tool[key];
+  }
+}
+
 function tryAddCacheControl(
   block: { cache_control?: unknown; defer_loading?: unknown } | undefined,
   budget: { remaining: number },
@@ -540,6 +555,7 @@ export function applyAnthropicMessagesMutations(
     const tools = (body.tools as Array<Record<string, unknown>>).map((t) => {
       const tool = { ...t };
       if (isDeferredTool(tool)) delete tool.cache_control;
+      stripEmptyDomainFilters(tool);
       return tool;
     });
     tryAddCacheControl(tools[tools.length - 1], cacheBudget);
