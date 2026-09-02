@@ -146,15 +146,38 @@ describe('CodeAssistClientService', () => {
       );
     });
 
-    it('throws when onboardUser returns no project id', async () => {
+    it('reloads Code Assist when the completed operation omits the project id', async () => {
       fetchMock
         .mockResolvedValueOnce(
           mockOkResponse({ allowedTiers: [{ id: 'free-tier', isDefault: true }] }),
         )
-        .mockResolvedValueOnce(mockOkResponse({ done: true, response: {} }));
+        .mockResolvedValueOnce(mockOkResponse({ done: true, response: {} }))
+        .mockResolvedValueOnce(
+          mockOkResponse({
+            currentTier: { id: 'free-tier' },
+            cloudaicompanionProject: 'proj-from-reload',
+          }),
+        );
+
+      await expect(svc.onboard('access-token')).resolves.toEqual({
+        projectId: 'proj-from-reload',
+        tierId: 'free-tier',
+      });
+      expect(fetchMock.mock.calls[2][0]).toBe(
+        'https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist',
+      );
+    });
+
+    it('explains when onboarding and reload both return no project id', async () => {
+      fetchMock
+        .mockResolvedValueOnce(
+          mockOkResponse({ allowedTiers: [{ id: 'free-tier', isDefault: true }] }),
+        )
+        .mockResolvedValueOnce(mockOkResponse({ done: true, response: {} }))
+        .mockResolvedValueOnce(mockOkResponse({ currentTier: { id: 'free-tier' } }));
 
       await expect(svc.onboard('access-token')).rejects.toThrow(
-        'CodeAssist onboardUser returned no project id.',
+        'Google connected, but Code Assist did not assign a project',
       );
     });
 

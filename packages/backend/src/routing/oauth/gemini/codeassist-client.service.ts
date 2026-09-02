@@ -62,9 +62,7 @@ export class CodeAssistClientService {
    * every chat request thereafter. Idempotent — safe to call repeatedly.
    */
   async onboard(accessToken: string): Promise<OnboardResult> {
-    const loaded = await this.callJson<LoadCodeAssistResponse>(':loadCodeAssist', accessToken, {
-      metadata: CLIENT_METADATA,
-    });
+    const loaded = await this.load(accessToken);
     const existingProject = loaded.cloudaicompanionProject;
     const currentTierId = loaded.currentTier?.id;
     if (existingProject && currentTierId) {
@@ -81,11 +79,25 @@ export class CodeAssistClientService {
       metadata: CLIENT_METADATA,
     });
     const completed = await this.waitForOperation(lro, accessToken);
-    const projectId = completed.response?.cloudaicompanionProject?.id;
-    if (!projectId) {
-      throw new Error('CodeAssist onboardUser returned no project id.');
+    const onboardedProject = completed.response?.cloudaicompanionProject?.id;
+    if (onboardedProject) {
+      return { projectId: onboardedProject, tierId: tier.id };
     }
-    return { projectId, tierId: tier.id };
+
+    // Code Assist can finish onboarding without embedding the assigned project
+    // in the operation response. Gemini CLI treats loadCodeAssist as the source
+    // of truth, so reload before concluding that no project was assigned.
+    const reloaded = await this.load(accessToken);
+    if (reloaded.cloudaicompanionProject) {
+      return {
+        projectId: reloaded.cloudaicompanionProject,
+        tierId: reloaded.currentTier?.id ?? tier.id,
+      };
+    }
+
+    throw new Error(
+      'Google connected, but Code Assist did not assign a project. Enable Gemini Code Assist for this account or use a Google Cloud project ID.',
+    );
   }
 
   private async waitForOperation(
@@ -104,6 +116,12 @@ export class CodeAssistClientService {
       throw new Error('CodeAssist onboardUser operation did not complete.');
     }
     return current;
+  }
+
+  private load(accessToken: string): Promise<LoadCodeAssistResponse> {
+    return this.callJson<LoadCodeAssistResponse>(':loadCodeAssist', accessToken, {
+      metadata: CLIENT_METADATA,
+    });
   }
 
   private async callJson<T>(
