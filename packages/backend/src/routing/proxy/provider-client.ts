@@ -570,11 +570,13 @@ export class ProviderClient {
               thinkingLookup: ctx.thinkingLookup,
               thinkingRouteContext,
               targetModel: bareModel,
+              authType,
             })
           : toAnthropicRequest(requestSource, bareModel, {
               injectSubscriptionIdentity,
               thinkingLookup: ctx.thinkingLookup,
               thinkingRouteContext,
+              authType,
             });
       const syntheticToolName =
         ctx.apiMode === 'responses'

@@ -1,5 +1,5 @@
 const ANTHROPIC_PREFIX = 'anthropic/';
-const SHORT_ANTHROPIC_MODEL_RE = /^claude-(opus|sonnet|haiku)-/i;
+const SHORT_ANTHROPIC_MODEL_RE = /^claude-(opus|sonnet|haiku|fable)-/i;
 const DOTTED_MINOR_RE = /-(\d+)\.(\d{1,2})(?=$|-\d{8}$)/g;
 const DASHED_MINOR_RE = /-(\d+)-(\d{1,2})(?=$|-\d{8}$)/g;
 

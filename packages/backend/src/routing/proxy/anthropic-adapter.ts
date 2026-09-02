@@ -398,6 +398,12 @@ export interface AnthropicRequestOptions {
   thinkingRouteContext?: ThinkingBlockRouteContext;
   /** Resolved Anthropic upstream model, used for model-specific body normalization. */
   targetModel?: string;
+  /**
+   * Upstream auth. Claude Code sends subscription-only fields such as
+   * `context_management`; Anthropic's API-key endpoint rejects them as
+   * extra inputs, so they must be stripped on that path.
+   */
+  authType?: string;
 }
 
 export function toAnthropicRequest(
@@ -518,6 +524,13 @@ export function applyAnthropicMessagesMutations(
   const result: Record<string, unknown> = { ...body };
   if (body.thinking !== undefined) {
     result.thinking = normalizeAnthropicThinking(body.thinking);
+  }
+  if (options?.authType && options.authType !== 'subscription') {
+    // Claude Code always emits `context_management` (clear_thinking edits).
+    // Anthropic only accepts that field on subscription tokens; the API-key
+    // Messages endpoint 400s with "context_management: Extra inputs are not
+    // permitted". Drop it when falling back off a Max/Pro account.
+    delete result.context_management;
   }
   const cacheBudget = {
     remaining: Math.max(0, MAX_CACHE_CONTROL_BLOCKS - countCacheControlBlocks(body)),

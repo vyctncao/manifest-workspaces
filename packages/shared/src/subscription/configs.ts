@@ -11,6 +11,7 @@ export const SUBSCRIPTION_PROVIDER_CONFIGS: Readonly<
     subscriptionCommand: 'claude setup-token',
     subscriptionTokenPrefix: 'sk-ant-oat',
     knownModels: Object.freeze([
+      'claude-fable-5-1',
       'claude-fable-5',
       'claude-opus-5',
       'claude-opus-4',
@@ -29,6 +30,7 @@ export const SUBSCRIPTION_PROVIDER_CONFIGS: Readonly<
       maxContextWindow: 200000,
       modelContextWindows: Object.freeze({
         'claude-opus-4-8': 1000000,
+        'claude-fable-5-1': 1000000,
         'claude-opus-5': 1000000,
         'claude-sonnet-5': 1000000,
       }),

@@ -493,6 +493,38 @@ describe('ModelDiscoveryService', () => {
     });
   });
 
+  describe('refreshConnectedProviderCatalogs', () => {
+    it('refreshes metadata once and updates every active non-custom provider', async () => {
+      const providers = [
+        makeProvider({ id: 'p1', provider: 'openai' }),
+        makeProvider({ id: 'p2', provider: 'anthropic', auth_type: 'subscription' }),
+        makeProvider({ id: 'p3', provider: 'custom:local' }),
+      ];
+      providerRepo.find.mockResolvedValue(providers);
+
+      await service.refreshConnectedProviderCatalogs();
+
+      expect(mockModelsDevSync.refreshCache).toHaveBeenCalledTimes(1);
+      expect(providerRepo.find).toHaveBeenCalledWith({ where: { is_active: true } });
+      expect(providerRepo.save).toHaveBeenCalledTimes(2);
+      expect(fetcher.fetch).toHaveBeenCalledWith('openai', 'decrypted-key', 'api_key', undefined, {
+        forceRefresh: true,
+      });
+    });
+
+    it('continues refreshing when one provider fails', async () => {
+      const providers = [
+        makeProvider({ id: 'p1', provider: 'openai' }),
+        makeProvider({ id: 'p2', provider: 'xai' }),
+      ];
+      providerRepo.find.mockResolvedValue(providers);
+      providerRepo.save.mockRejectedValueOnce(new Error('write failed')).mockResolvedValueOnce({});
+
+      await expect(service.refreshConnectedProviderCatalogs()).resolves.not.toThrow();
+      expect(fetcher.fetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
   /* ── discoverAllForAgent ── */
 
   describe('discoverAllForAgent', () => {
@@ -1629,9 +1661,10 @@ describe('ModelDiscoveryService', () => {
       // Sorted: the enrichment order of curated entries is not stable across
       // environments (pricing-cache state moves ids around).
       expect(result.map((m) => m.id).sort()).toEqual([
-        'claude-fable-5',
+        'claude-fable-5-1',
         'claude-haiku-4',
         'claude-opus-4',
+        'claude-opus-5',
         'claude-sonnet-4',
         'claude-sonnet-5',
       ]);
@@ -1945,15 +1978,15 @@ describe('ModelDiscoveryService', () => {
         }),
       );
 
-      // Should only include models matching knownModels prefixes (claude-opus-4, claude-sonnet-4, claude-haiku-4)
-      // and NOT claude-2.1 or openai models. claude-fable-5 and claude-sonnet-5
-      // have no OpenRouter pricing entry, so they are appended directly as
-      // zero-cost known models.
-      expect(result).toHaveLength(5);
+      // Should only include models matching knownModels prefixes and not
+      // claude-2.1 or OpenAI models. The new 5.1 models and claude-sonnet-5
+      // have no pricing entries here, so they are appended directly.
+      expect(result).toHaveLength(6);
       expect(result.map((m) => m.id).sort()).toEqual([
-        'claude-fable-5',
+        'claude-fable-5-1',
         'claude-haiku-4-20260301',
         'claude-opus-4-20260301',
+        'claude-opus-5',
         'claude-sonnet-4-20260301',
         'claude-sonnet-5',
       ]);
@@ -2150,11 +2183,12 @@ describe('ModelDiscoveryService', () => {
       );
 
       // Even without pricingSync, knownModels are returned directly
-      expect(result).toHaveLength(5);
+      expect(result).toHaveLength(6);
       expect(result.map((m) => m.id).sort()).toEqual([
-        'claude-fable-5',
+        'claude-fable-5-1',
         'claude-haiku-4',
         'claude-opus-4',
+        'claude-opus-5',
         'claude-sonnet-4',
         'claude-sonnet-5',
       ]);
@@ -2531,11 +2565,12 @@ describe('ModelDiscoveryService', () => {
       const result = buildSubscriptionFallbackModels(null as never, 'anthropic');
 
       // No OpenRouter data, but knownModels are added directly
-      expect(result).toHaveLength(5);
+      expect(result).toHaveLength(6);
       expect(result.map((m) => m.id).sort()).toEqual([
-        'claude-fable-5',
+        'claude-fable-5-1',
         'claude-haiku-4',
         'claude-opus-4',
+        'claude-opus-5',
         'claude-sonnet-4',
         'claude-sonnet-5',
       ]);

@@ -1,4 +1,5 @@
 import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { resolveProviderMetadataIdentity, type AuthType } from 'manifest-shared';
@@ -348,6 +349,33 @@ export class ModelDiscoveryService {
       `Discovered ${filtered.length} models for provider ${provider.provider} (tenant ${provider.tenant_id})`,
     );
     return filtered;
+  }
+
+  /**
+   * Refresh every connected provider after the upstream metadata jobs complete.
+   * This keeps agent model pickers current without requiring a dashboard click
+   * when providers publish a new model.
+   */
+  @Cron('15 4 * * *')
+  async refreshConnectedProviderCatalogs(): Promise<void> {
+    await this.refreshModelsDevCache();
+    const providers = filterProvidersForDeployment(
+      await this.providerRepo.find({ where: { is_active: true } }),
+    );
+    await Promise.all(
+      providers
+        .filter((provider) => !provider.provider.startsWith('custom:'))
+        .map((provider) =>
+          this.discoverModels(provider, {
+            forceRefresh: true,
+            skipModelsDevRefresh: true,
+          }).catch((err) => {
+            this.logger.warn(
+              `Scheduled model discovery failed for ${provider.provider} (${provider.id}): ${err}`,
+            );
+          }),
+        ),
+    );
   }
 
   async discoverAllForAgent(tenantId: string, options: DiscoverModelsOptions = {}): Promise<void> {

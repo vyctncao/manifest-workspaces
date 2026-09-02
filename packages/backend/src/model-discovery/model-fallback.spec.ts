@@ -350,14 +350,35 @@ describe('buildSubscriptionFallbackModels', () => {
     expect(model!.contextWindow).toBe(1000000);
   });
 
-  it('surfaces claude-fable-5 even when the pricing cache lacks it', () => {
-    // claude-fable-5 is a valid Anthropic subscription model with no pricing
+  it('normalizes dotted Fable minor versions from pricing catalogs', () => {
+    const cache = new Map([
+      [
+        'anthropic/claude-fable-5.1',
+        {
+          input: 0.005,
+          output: 0.025,
+          contextWindow: 1000000,
+          displayName: 'Claude Fable 5.1',
+        },
+      ],
+    ]);
+
+    const ids = buildSubscriptionFallbackModels(makePricingSync(cache), 'anthropic').map(
+      (model) => model.id,
+    );
+
+    expect(ids).toContain('claude-fable-5-1');
+    expect(ids).not.toContain('claude-fable-5.1');
+  });
+
+  it('surfaces claude-fable-5-1 even when the pricing cache lacks it', () => {
+    // claude-fable-5-1 is a valid Anthropic subscription model with no pricing
     // cache entry; the knownModels fallback must still offer it.
     const ids = buildSubscriptionFallbackModels(makePricingSync(new Map()), 'anthropic').map(
       (m) => m.id,
     );
 
-    expect(ids).toContain('claude-fable-5');
+    expect(ids).toContain('claude-fable-5-1');
   });
 
   it('returns [] for opencode-go because its catalog is fetched dynamically', () => {

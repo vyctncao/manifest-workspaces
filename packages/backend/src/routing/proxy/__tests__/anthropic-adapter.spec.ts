@@ -2199,6 +2199,51 @@ describe('Anthropic Adapter', () => {
   });
 
   describe('applyAnthropicMessagesMutations', () => {
+    it('drops subscription-only context management for API-key fallbacks', () => {
+      const inbound = {
+        messages: [{ role: 'user', content: 'hi' }],
+        context_management: {
+          edits: [{ keep: 'all', type: 'clear_thinking_20251015' }],
+        },
+      };
+
+      const result = applyAnthropicMessagesMutations(inbound, { authType: 'api_key' });
+
+      expect(result.context_management).toBeUndefined();
+      expect(inbound.context_management).toEqual({
+        edits: [{ keep: 'all', type: 'clear_thinking_20251015' }],
+      });
+    });
+
+    it('preserves context management for Anthropic subscription routes', () => {
+      const contextManagement = {
+        edits: [{ keep: 'all', type: 'clear_thinking_20251015' }],
+      };
+
+      const result = applyAnthropicMessagesMutations(
+        {
+          messages: [{ role: 'user', content: 'hi' }],
+          context_management: contextManagement,
+        },
+        { authType: 'subscription' },
+      );
+
+      expect(result.context_management).toBe(contextManagement);
+    });
+
+    it('preserves context management when the caller does not identify the auth type', () => {
+      const contextManagement = {
+        edits: [{ keep: 'all', type: 'clear_thinking_20251015' }],
+      };
+
+      const result = applyAnthropicMessagesMutations({
+        messages: [{ role: 'user', content: 'hi' }],
+        context_management: contextManagement,
+      });
+
+      expect(result.context_management).toBe(contextManagement);
+    });
+
     it('drops the manual budget from native adaptive thinking without mutating the body', () => {
       const inbound = {
         messages: [{ role: 'user', content: 'hi' }],
