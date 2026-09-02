@@ -493,6 +493,30 @@ describe('ModelDiscoveryService', () => {
     });
   });
 
+  describe('onModuleInit', () => {
+    it('starts a provider catalog refresh without blocking startup', async () => {
+      let resolve!: () => void;
+      jest
+        .spyOn(service, 'refreshConnectedProviderCatalogs')
+        .mockReturnValue(new Promise<void>((done) => (resolve = done)));
+
+      expect(service.onModuleInit()).toBeUndefined();
+      expect(service.refreshConnectedProviderCatalogs).toHaveBeenCalledTimes(1);
+      resolve();
+      await Promise.resolve();
+    });
+
+    it('handles a startup refresh failure', async () => {
+      jest
+        .spyOn(service, 'refreshConnectedProviderCatalogs')
+        .mockRejectedValue(new Error('database unavailable'));
+
+      expect(service.onModuleInit()).toBeUndefined();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  });
+
   describe('refreshConnectedProviderCatalogs', () => {
     it('refreshes metadata once and updates every active non-custom provider', async () => {
       const providers = [

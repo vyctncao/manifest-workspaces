@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
+import { Injectable, Logger, Inject, Optional, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
@@ -94,7 +94,7 @@ interface DiscoverModelsOptions {
 }
 
 @Injectable()
-export class ModelDiscoveryService {
+export class ModelDiscoveryService implements OnModuleInit {
   private readonly logger = new Logger(ModelDiscoveryService.name);
 
   // Per-agent cache for getModelsForAgent(). This is the hottest uncached DB
@@ -133,6 +133,12 @@ export class ModelDiscoveryService {
     @Optional()
     private readonly tenantCache: TenantCacheService | null = null,
   ) {}
+
+  onModuleInit(): void {
+    void this.refreshConnectedProviderCatalogs().catch((err) => {
+      this.logger.error(`Startup model discovery failed: ${err}`);
+    });
+  }
 
   async discoverModels(
     provider: TenantProvider,
