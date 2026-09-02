@@ -88,7 +88,9 @@ const ProviderCard: Component<{ connection: PlanUsageConnection }> = (props) => 
                     : `${balance.remaining.toLocaleString()} ${balance.unit} remaining`}
                 </strong>
               </div>
-              <Show when={balance.limit !== null && balance.remaining !== null}>
+              <Show
+                when={balance.limit !== null && balance.limit > 0 && balance.remaining !== null}
+              >
                 <div class="plan-usage-window__track">
                   <div
                     class="plan-usage-window__fill"

@@ -23,7 +23,13 @@ beforeEach(() => {
         status: 'available',
         planLabel: 'Max',
         windows: [
-          { id: 'five_hour', label: '5-hour', usedPct: 25, remainingPct: 75, resetsAt: null },
+          {
+            id: 'five_hour',
+            label: '5-hour',
+            usedPct: 25,
+            remainingPct: 75,
+            resetsAt: '2026-09-02T12:00:00Z',
+          },
           { id: 'weekly', label: 'Weekly', usedPct: 40, remainingPct: 60, resetsAt: null },
           { id: 'fable', label: 'Weekly · Fable', usedPct: 10, remainingPct: 90, resetsAt: null },
         ],
@@ -60,8 +66,80 @@ describe('PlanUsage', () => {
     expect(screen.getByText('75% remaining')).toBeDefined();
     expect(screen.getByText('60% remaining')).toBeDefined();
     expect(screen.getByText('90% remaining')).toBeDefined();
+    expect(screen.getByText(/^Resets Sep 2,/)).toBeDefined();
     expect(screen.getByText('Gemini')).toBeDefined();
     expect(screen.getByText(/does not expose plan usage/)).toBeDefined();
+  });
+
+  it('renders reported balance reset times beneath the balance', async () => {
+    getPlanUsage.mockResolvedValueOnce({
+      fetchedAt: '2026-09-02T00:00:00Z',
+      connections: [
+        {
+          connectionId: 'credits-1',
+          providerId: 'example',
+          displayName: 'Example',
+          label: 'Default',
+          status: 'available',
+          planLabel: null,
+          windows: [],
+          balances: [
+            {
+              id: 'credits',
+              label: 'Credits',
+              used: 5,
+              remaining: 5,
+              limit: 10,
+              unit: 'credits',
+              resetsAt: '2026-09-30T12:00:00Z',
+            },
+          ],
+          details: [],
+          message: null,
+        },
+      ],
+    });
+
+    render(() => <PlanUsage />);
+
+    await waitFor(() => expect(screen.getByText('Example')).toBeDefined());
+    expect(screen.getByText(/^Resets Sep 30,/)).toBeDefined();
+  });
+
+  it('does not render a progress track for a zero-limit balance', async () => {
+    getPlanUsage.mockResolvedValueOnce({
+      fetchedAt: '2026-09-02T00:00:00Z',
+      connections: [
+        {
+          connectionId: 'xai-1',
+          providerId: 'xai',
+          displayName: 'Grok',
+          label: 'Default',
+          status: 'available',
+          planLabel: 'SuperGrok Plus',
+          windows: [],
+          balances: [
+            {
+              id: 'credits',
+              label: 'Credits',
+              used: 0,
+              remaining: 0,
+              limit: 0,
+              unit: 'credits',
+              resetsAt: null,
+            },
+          ],
+          details: [],
+          message: null,
+        },
+      ],
+    });
+
+    render(() => <PlanUsage />);
+
+    await waitFor(() => expect(screen.getByText('Grok')).toBeDefined());
+    expect(screen.getByText('0 credits remaining')).toBeDefined();
+    expect(document.querySelector('.plan-usage-window__track')).toBeNull();
   });
 
   it('refreshes usage from the button', async () => {

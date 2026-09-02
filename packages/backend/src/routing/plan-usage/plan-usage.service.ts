@@ -66,6 +66,7 @@ const DISPLAY_NAMES: Record<string, string> = {
 };
 
 function numberValue(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -254,12 +255,25 @@ export class PlanUsageService {
     const limits = recordValue(body?.rate_limit);
     const review = recordValue(body?.code_review_rate_limit);
     const windows: PlanUsageWindow[] = [];
-    for (const [id, label, value] of [
+    for (const [id, fallbackLabel, value] of [
       ['session', '5-hour', limits?.primary_window],
       ['weekly', 'Weekly', limits?.secondary_window],
       ['code_review', 'Code review', review?.primary_window],
     ] as const) {
       const row = recordValue(value);
+      const durationSeconds =
+        numberValue(row?.limit_window_seconds) ?? numberValue(row?.window_seconds);
+      const resetAfterSeconds = numberValue(row?.reset_after_seconds);
+      const resetAtSeconds = numberValue(row?.reset_at);
+      const secondsUntilReset =
+        resetAtSeconds === null ? null : resetAtSeconds - Math.floor(Date.now() / 1000);
+      const observedSeconds = durationSeconds ?? resetAfterSeconds ?? secondsUntilReset;
+      const label =
+        observedSeconds === null
+          ? fallbackLabel
+          : observedSeconds > 6 * 60 * 60
+            ? 'Weekly'
+            : fallbackLabel;
       const window = windowFromUsed(id, label, row?.used_percent, epochSecondsToIso(row?.reset_at));
       if (window) windows.push(window);
     }
@@ -347,34 +361,44 @@ export class PlanUsageService {
   }
 
   private async fetchGrok(base: PlanUsageConnection, token: string): Promise<PlanUsageConnection> {
-    const body = recordValue(
-      await this.getJson('https://cli-chat-proxy.grok.com/v1/billing', token, {
-        'X-XAI-Token-Auth': 'xai-grok-cli',
-      }),
+    const headers = { 'X-XAI-Token-Auth': 'xai-grok-cli' };
+    const [billingBody, settingsBody] = await Promise.all([
+      this.getJson('https://cli-chat-proxy.grok.com/v1/billing?format=credits', token, headers),
+      this.getJson('https://cli-chat-proxy.grok.com/v1/settings', token, headers).catch(() => null),
+    ]);
+    const billing = recordValue(billingBody);
+    const settings = recordValue(settingsBody);
+    const config = recordValue(billing?.config);
+    const period = recordValue(config?.currentPeriod);
+    const usedPct = numberValue(config?.creditUsagePercent);
+    const periodType = stringValue(period?.type);
+    const window = windowFromUsed(
+      'subscription',
+      periodType === 'USAGE_PERIOD_TYPE_WEEKLY' ? 'Weekly limit' : 'Usage limit',
+      usedPct,
+      period?.end ?? config?.billingPeriodEnd,
     );
-    const config = recordValue(body?.config);
-    const limit = numberValue(recordValue(config?.monthlyLimit)?.val);
-    const used =
-      numberValue(recordValue(config?.used)?.val) ??
-      numberValue(recordValue(body?.usage)?.creditUsage);
-    const remaining = limit !== null && used !== null ? Math.max(0, limit - used) : null;
+    const prepaidBalance = numberValue(recordValue(config?.prepaidBalance)?.val);
+    const balances =
+      prepaidBalance !== null && prepaidBalance > 0
+        ? [
+            {
+              id: 'credits',
+              label: 'Credits',
+              used: null,
+              remaining: prepaidBalance,
+              limit: null,
+              unit: 'credits',
+              resetsAt: null,
+            },
+          ]
+        : [];
     return {
       ...base,
-      balances:
-        limit === null && used === null
-          ? []
-          : [
-              {
-                id: 'credits',
-                label: 'Monthly credits',
-                used,
-                remaining,
-                limit,
-                unit: 'credits',
-                resetsAt: stringValue(config?.billingPeriodEnd),
-              },
-            ],
-      status: limit !== null || used !== null ? 'available' : 'unavailable',
+      planLabel: stringValue(settings?.subscription_tier_display),
+      windows: window ? [window] : [],
+      balances,
+      status: window || balances.length ? 'available' : 'unavailable',
     };
   }
 
