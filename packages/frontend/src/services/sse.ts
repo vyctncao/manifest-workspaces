@@ -1,6 +1,7 @@
 import { createSignal } from 'solid-js';
 import { invalidateCustomProvidersCache } from './api/routing.js';
 import { invalidateGroup } from './api/cache.js';
+import { isDocumentHidden, onDocumentVisible } from './document-visibility.js';
 
 // pingCount counts ANY event from the bus (legacy back-compat for callers that
 // don't care which kind fired). New code should depend on the targeted
@@ -28,18 +29,42 @@ export function connectSse(): () => void {
   // resources. Collapsing a burst into a single bump every 500ms keeps backend
   // QPS sane at the cost of a small refresh delay on the dashboard.
   let messageBumpTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Invalidate the SWR cache BEFORE bumping the ping. The ping drives the
+  // resource refetch; if the stale message/overview/usage entries were still
+  // cached, that refetch would read them and the dashboard wouldn't update
+  // live. Dropping them first guarantees the refetch hits the network.
+  const flushMessageBump = () => {
+    invalidateGroup('message');
+    setMessagePing((n) => n + 1);
+  };
+
+  // Set while events arrive with the tab hidden, so the catch-up bump on return
+  // happens only if something actually changed.
+  let missedWhileHidden = false;
+
   const bumpMessagePing = () => {
+    // A hidden tab has nothing to repaint, so the 500ms window would just run
+    // the dashboard's entire resource fan-out twice a second behind a
+    // background tab for as long as an agent keeps streaming. Defer instead of
+    // dropping: record that something moved and settle up in a single bump when
+    // the tab comes back, so a returning user still sees current data.
+    if (isDocumentHidden()) {
+      missedWhileHidden = true;
+      return;
+    }
     if (messageBumpTimer) return;
     messageBumpTimer = setTimeout(() => {
       messageBumpTimer = null;
-      // Invalidate the SWR cache BEFORE bumping the ping. The ping drives the
-      // resource refetch; if the stale message/overview/usage entries were still
-      // cached, that refetch would read them and the dashboard wouldn't update
-      // live. Dropping them first guarantees the refetch hits the network.
-      invalidateGroup('message');
-      setMessagePing((n) => n + 1);
+      flushMessageBump();
     }, 500);
   };
+
+  const stopVisibilityWatch = onDocumentVisible(() => {
+    if (!missedWhileHidden) return;
+    missedWhileHidden = false;
+    flushMessageBump();
+  });
 
   // Legacy generic 'ping' from older deployments — keep listening so a partial
   // upgrade (old backend, new frontend) still triggers refetches. The safe
@@ -74,6 +99,8 @@ export function connectSse(): () => void {
   return () => {
     if (messageBumpTimer) clearTimeout(messageBumpTimer);
     messageBumpTimer = null;
+    missedWhileHidden = false;
+    stopVisibilityWatch();
     es.close();
   };
 }

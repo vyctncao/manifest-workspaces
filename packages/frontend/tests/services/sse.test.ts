@@ -243,4 +243,126 @@ describe("sse cache invalidation", () => {
     expect(messagePing()).toBe(before);
     expect(invalidateGroup).not.toHaveBeenCalled();
   });
+
+  // ── Background-tab gating ──────────────────────────────────────────────
+  // A hidden tab repaints nothing, so the 500ms coalescing window would still
+  // run the dashboard's whole resource fan-out twice a second behind a
+  // background tab. Bumps are deferred (never dropped) and settled in one
+  // catch-up when the tab returns.
+
+  /** Drive document.visibilityState and capture visibilitychange listeners. */
+  function stubVisibility(initial: "visible" | "hidden") {
+    let state = initial;
+    const listeners: Array<() => void> = [];
+    vi.stubGlobal("document", {
+      get visibilityState() {
+        return state;
+      },
+      addEventListener: (type: string, fn: () => void) => {
+        if (type === "visibilitychange") listeners.push(fn);
+      },
+      removeEventListener: (type: string, fn: () => void) => {
+        const i = listeners.indexOf(fn);
+        if (i >= 0) listeners.splice(i, 1);
+      },
+    });
+    return {
+      set(next: "visible" | "hidden") {
+        state = next;
+        for (const fn of [...listeners]) fn();
+      },
+      listenerCount: () => listeners.length,
+    };
+  }
+
+  it("does not refetch while the tab is hidden", async () => {
+    vi.useFakeTimers();
+    stubVisibility("hidden");
+    const { connectSse, messagePing } = await import("../../src/services/sse");
+    connectSse();
+    const handler = getHandler("message");
+    const before = messagePing();
+
+    // A burst of events arrives while backgrounded.
+    handler();
+    handler();
+    handler();
+    vi.advanceTimersByTime(5000);
+
+    // No ping, and crucially no cache invalidation — the cached payloads stay
+    // usable so returning to the tab can still paint instantly.
+    expect(messagePing()).toBe(before);
+    expect(invalidateGroup).not.toHaveBeenCalled();
+  });
+
+  it("fires exactly one catch-up bump when the tab becomes visible again", async () => {
+    vi.useFakeTimers();
+    const visibility = stubVisibility("hidden");
+    const { connectSse, messagePing } = await import("../../src/services/sse");
+    connectSse();
+    const handler = getHandler("message");
+    const before = messagePing();
+
+    handler();
+    handler();
+    expect(messagePing()).toBe(before);
+
+    visibility.set("visible");
+
+    // One bump for the whole hidden burst, and it is immediate — the user is
+    // looking at the page now, so it must not wait out another 500ms window.
+    expect(messagePing()).toBe(before + 1);
+    expect(invalidateGroup).toHaveBeenCalledWith("message");
+
+    // No second bump from a stale pending flag.
+    vi.advanceTimersByTime(5000);
+    expect(messagePing()).toBe(before + 1);
+  });
+
+  it("does not bump on visibility change when nothing arrived while hidden", async () => {
+    vi.useFakeTimers();
+    const visibility = stubVisibility("hidden");
+    const { connectSse, messagePing } = await import("../../src/services/sse");
+    connectSse();
+    const before = messagePing();
+
+    visibility.set("visible");
+
+    expect(messagePing()).toBe(before);
+    expect(invalidateGroup).not.toHaveBeenCalled();
+  });
+
+  it("still coalesces normally while the tab is visible", async () => {
+    vi.useFakeTimers();
+    stubVisibility("visible");
+    const { connectSse, messagePing } = await import("../../src/services/sse");
+    connectSse();
+    const handler = getHandler("message");
+    const before = messagePing();
+
+    handler();
+    handler();
+    expect(messagePing()).toBe(before);
+    vi.advanceTimersByTime(500);
+    expect(messagePing()).toBe(before + 1);
+  });
+
+  it("removes the visibility listener on cleanup", async () => {
+    vi.useFakeTimers();
+    const visibility = stubVisibility("hidden");
+    const { connectSse, messagePing } = await import("../../src/services/sse");
+    const cleanup = connectSse();
+    const handler = getHandler("message");
+    const before = messagePing();
+
+    handler();
+    cleanup();
+    expect(visibility.listenerCount()).toBe(0);
+
+    // A visibility change after teardown must not resurrect the pending bump.
+    visibility.set("visible");
+    expect(messagePing()).toBe(before);
+    expect(invalidateGroup).not.toHaveBeenCalled();
+  });
+
 });

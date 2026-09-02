@@ -14,6 +14,7 @@ import { getWorkspaceAutofixStatus } from '../services/api/analytics.js';
 import { getAutofixCohort } from '../services/api/autofix.js';
 import { getAgents } from '../services/api.js';
 import { messagePing, agentPing, routingPing } from '../services/sse.js';
+import { isDocumentHidden, onDocumentVisible } from '../services/document-visibility.js';
 
 const READ_KEY = 'manifest_notif_read';
 
@@ -56,13 +57,30 @@ const NotificationBell: Component = () => {
     onCleanup(() => document.removeEventListener('mousedown', handler));
   }
 
-  // Poll every 15s to catch autofix toggle changes (no SSE for this mutation)
+  // Poll every 15s to catch autofix toggle changes (no SSE for this mutation).
+  // The bell is mounted in the app shell, so this interval runs on every page
+  // for as long as the tab is open — skip the tick while hidden (nothing is
+  // being looked at) and fire one catch-up tick on return so a resurfaced tab
+  // is never showing a stale toggle.
   const [tick, setTick] = createSignal(0);
-  const interval = setInterval(() => setTick((n) => n + 1), 15_000);
-  onCleanup(() => clearInterval(interval));
+  const bumpTick = () => setTick((n) => n + 1);
+  const interval = setInterval(() => {
+    if (isDocumentHidden()) return;
+    bumpTick();
+  }, 15_000);
+  const stopVisibilityWatch = onDocumentVisible(bumpTick);
+  onCleanup(() => {
+    clearInterval(interval);
+    stopVisibilityWatch();
+  });
 
+  // Deliberately NOT on `tick`. The 15s poll exists for the autofix *toggle*
+  // (see `status` below); cohort membership is a slow-moving tenant
+  // entitlement that no dashboard action changes. Polling it made
+  // /autofix/cohort the single most-requested endpoint in the app by an order
+  // of magnitude — the SSE pings already cover every way it can move.
   const [cohort] = createResource(
-    () => ({ _a: agentPing(), _m: messagePing(), _r: routingPing(), _t: tick() }),
+    () => ({ _a: agentPing(), _m: messagePing(), _r: routingPing() }),
     async () => {
       try {
         return await getAutofixCohort();
