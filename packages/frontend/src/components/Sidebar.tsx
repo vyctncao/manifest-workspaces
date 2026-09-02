@@ -105,6 +105,14 @@ const Sidebar: Component<SidebarProps> = (props) => {
       >
         Requests
       </A>
+      <A
+        href="/plan-usage"
+        class="sidebar__link"
+        classList={{ active: isGlobalActive('/plan-usage') }}
+        aria-current={isGlobalActive('/plan-usage') ? 'page' : undefined}
+      >
+        Plan usage
+      </A>
       <div class="sidebar__section-label">PROVIDERS</div>
       <Show when={selfHosted()}>
         <A

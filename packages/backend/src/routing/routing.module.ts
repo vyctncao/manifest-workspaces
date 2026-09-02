@@ -28,6 +28,8 @@ import { Tenant } from '../entities/tenant.entity';
 import { TierAssignment } from '../entities/tier-assignment.entity';
 import { SpecificityAssignment } from '../entities/specificity-assignment.entity';
 import { HeaderTier } from '../entities/header-tier.entity';
+import { PlanUsageController } from './plan-usage/plan-usage.controller';
+import { PlanUsageService } from './plan-usage/plan-usage.service';
 
 @Module({
   imports: [
@@ -62,8 +64,9 @@ import { HeaderTier } from '../entities/header-tier.entity';
     ModelParamsController,
     TenantProvidersController,
     AgentEnabledProvidersController,
+    PlanUsageController,
   ],
-  providers: [OllamaSyncService],
+  providers: [OllamaSyncService, PlanUsageService],
   exports: [RoutingCoreModule, CustomProviderModule, OAuthModule],
 })
 export class RoutingModule {}

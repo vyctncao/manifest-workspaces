@@ -43,6 +43,7 @@ const Subscriptions = lazyReload(() => import('./pages/providers/Subscriptions.j
 const Byok = lazyReload(() => import('./pages/providers/Byok.jsx'));
 const LocalProviders = lazyReload(() => import('./pages/providers/Local.jsx'));
 const ConnectionDetail = lazyReload(() => import('./pages/providers/ConnectionDetail.jsx'));
+const PlanUsage = lazyReload(() => import('./pages/PlanUsage.jsx'));
 
 const GuestLayout: ParentComponent = (props) => (
   <GuestGuard>
@@ -77,6 +78,7 @@ render(
           <Route path="/workspaces" component={WorkspaceMembers} />
           <Route path="/playground" component={Playground} />
           <Route path="/providers/subscriptions" component={Subscriptions} />
+          <Route path="/plan-usage" component={PlanUsage} />
           <Route path="/providers/usage-based" component={Byok} />
           <Route path="/providers/local" component={LocalProviders} />
           <Route path="/providers/connections/:connectionId" component={ConnectionDetail} />

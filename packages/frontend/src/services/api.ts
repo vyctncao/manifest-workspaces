@@ -24,3 +24,4 @@ export {
   type TenantProviderUsage,
   type TenantProviderSummary,
 } from './api/providers.js';
+export * from './api/plan-usage.js';

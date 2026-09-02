@@ -214,3 +214,17 @@ describe('api/specificity', () => {
     expect(init.method).toBe('POST');
   });
 });
+
+describe('api/plan-usage', () => {
+  it('fetches the tenant plan usage without the shared GET cache', async () => {
+    const { getPlanUsage } = await import('../../src/services/api/plan-usage.js');
+    mockOk({ fetchedAt: '2026-09-02T00:00:00Z', connections: [] });
+
+    const result = await getPlanUsage();
+
+    expect(result.connections).toEqual([]);
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toContain('/api/v1/routing/plan-usage');
+    expect(init.credentials).toBe('include');
+  });
+});
