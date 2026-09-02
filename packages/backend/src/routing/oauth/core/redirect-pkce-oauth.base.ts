@@ -86,6 +86,7 @@ interface RedirectPkcePendingOAuth {
   /** Acting user, audit only (tenant_providers.created_by_user_id). */
   createdByUserId: string | null;
   backendUrl: string;
+  resourceField?: string;
   expiresAt: number;
 }
 
@@ -134,6 +135,7 @@ export abstract class RedirectPkceOauthBaseService {
     tenantId: string,
     backendUrl?: string,
     createdByUserId?: string | null,
+    resourceField?: string,
   ): Promise<string> {
     const state = generateState();
     const { verifier, challenge } = generatePkce();
@@ -147,6 +149,7 @@ export abstract class RedirectPkceOauthBaseService {
       tenantId,
       createdByUserId: createdByUserId ?? null,
       backendUrl: safeBackendUrl,
+      resourceField,
     });
     if (this.useCallbackServer) {
       await this.ensureCallbackServer();
@@ -203,7 +206,7 @@ export abstract class RedirectPkceOauthBaseService {
     // call (CodeAssist `loadCodeAssist`/`onboardUser`) immediately after
     // exchange to discover their assigned project id. The result lives in
     // `blob.u` and is preserved across refreshes by `unwrapToken`.
-    const blob = await this.enrichBlob(baseBlob);
+    const blob = await this.enrichBlob(baseBlob, pending.resourceField);
     const label = await this.providerService.nextOAuthLabel(
       pending.tenantId,
       this.oauthConfig.providerId,
@@ -368,7 +371,10 @@ export abstract class RedirectPkceOauthBaseService {
    * pass-through. Throwing here aborts the exchange; the user sees a
    * generic "Token exchange failed" error.
    */
-  protected async enrichBlob(blob: OAuthTokenBlob): Promise<OAuthTokenBlob> {
+  protected async enrichBlob(
+    blob: OAuthTokenBlob,
+    _resourceField?: string,
+  ): Promise<OAuthTokenBlob> {
     return blob;
   }
 

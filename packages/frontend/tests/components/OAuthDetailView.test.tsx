@@ -281,6 +281,20 @@ describe('OAuthDetailView', () => {
     });
   });
 
+  it('shows and forwards an optional Google Cloud project ID', async () => {
+    mockGetOpenaiOAuthUrl.mockResolvedValue({ url: 'https://accounts.google.com/auth' });
+    vi.spyOn(window, 'open').mockReturnValue({ closed: false } as unknown as Window);
+
+    renderView({ provId: 'gemini', provDef: geminiProvDef });
+    const projectInput = screen.getByPlaceholderText('my-project-123');
+    fireEvent.input(projectInput, { target: { value: 'custom-project-456' } });
+    fireEvent.click(screen.getByText('Log in with Gemini'));
+
+    await waitFor(() => {
+      expect(mockGetOpenaiOAuthUrl).toHaveBeenCalledWith('test-agent', 'custom-project-456');
+    });
+  });
+
   it('starts xAI OAuth with the xAI callback path and manual-code placeholder', async () => {
     mockGetXaiOAuthUrl.mockResolvedValue({ url: 'https://auth.x.ai/oauth2/authorize' });
     vi.spyOn(window, 'open').mockReturnValue({ closed: false } as unknown as Window);
@@ -420,7 +434,9 @@ describe('OAuthDetailView', () => {
     await waitFor(() => {
       expect(screen.getByText(/Copy the full URL/)).toBeDefined();
     });
-    expect(container.querySelector('video[src="/images/oauth-callback-example.mp4"]')).not.toBeNull();
+    expect(
+      container.querySelector('video[src="/images/oauth-callback-example.mp4"]'),
+    ).not.toBeNull();
   });
 
   it('sets preload="auto" on the OAuth tutorial video so it plays immediately', async () => {

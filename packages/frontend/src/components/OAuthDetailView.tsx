@@ -67,6 +67,7 @@ const OAuthDetailView: Component<Props> = (props) => {
   const [renamingId, setRenamingId] = createSignal<string | null>(null);
   const [renameValue, setRenameValue] = createSignal('');
   const [addingAccount, setAddingAccount] = createSignal(false);
+  const [googleCloudProject, setGoogleCloudProject] = createSignal('');
 
   // Dispose the OAuth popup monitor if the view unmounts mid-flow, otherwise its
   // 300ms URL poll keeps running after the component is gone.
@@ -76,6 +77,7 @@ const OAuthDetailView: Component<Props> = (props) => {
   const isMultiKey = () => (props.activeKeys?.() ?? []).length > 1;
   const isXaiProvider = () => props.provId === 'xai';
   const isOpenAiProvider = () => props.provId === 'openai';
+  const isGeminiProvider = () => props.provId === 'gemini';
   const callbackPlaceholder = () =>
     isXaiProvider()
       ? 'Paste the xAI authorization code or callback URL'
@@ -131,7 +133,10 @@ const OAuthDetailView: Component<Props> = (props) => {
     setPasteUrl('');
     setPasteError(null);
     try {
-      const { url } = await oauthApi().getUrl(props.agentName);
+      const project = isGeminiProvider() ? googleCloudProject().trim() : '';
+      const { url } = project
+        ? await oauthApi().getUrl(props.agentName, project)
+        : await oauthApi().getUrl(props.agentName);
       try {
         setOauthState(new URL(url).searchParams.get('state'));
       } catch {
@@ -283,6 +288,26 @@ const OAuthDetailView: Component<Props> = (props) => {
               <p class="provider-detail__hint">
                 Log in with your {props.provDef.name} account to connect your subscription.
               </p>
+              <Show when={isGeminiProvider()}>
+                <div class="provider-detail__field" style="margin-bottom: 12px;">
+                  <label class="provider-detail__label" for="google-cloud-project">
+                    Google Cloud project ID <span style="font-weight: 400;">(optional)</span>
+                  </label>
+                  <input
+                    id="google-cloud-project"
+                    type="text"
+                    class="provider-detail__input"
+                    autocomplete="off"
+                    placeholder="my-project-123"
+                    value={googleCloudProject()}
+                    onInput={(e) => setGoogleCloudProject(e.currentTarget.value)}
+                  />
+                  <p class="provider-detail__hint" style="margin-top: 6px;">
+                    Only needed when Code Assist does not assign a free-tier project. Use the
+                    project ID, not its numeric project number.
+                  </p>
+                </div>
+              </Show>
               <button
                 class="btn btn--primary provider-detail__action"
                 disabled={props.busy()}

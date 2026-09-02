@@ -157,9 +157,10 @@ export function revokeAnthropicOAuth(agentName: string, label?: string) {
   );
 }
 
-export function getGeminiOAuthUrl(agentName: string) {
+export function getGeminiOAuthUrl(agentName: string, googleCloudProject?: string) {
   return fetchJson<{ url: string }>(`/oauth/gemini/authorize`, {
     agentName,
+    projectId: googleCloudProject?.trim() || undefined,
   });
 }
 
@@ -185,7 +186,7 @@ export function revokeGeminiOAuth(agentName: string, label?: string) {
  * right getUrl/submitCallback/revoke triplet based on the provider id.
  */
 export interface PopupOauthApi {
-  getUrl: (agentName: string) => Promise<{ url: string }>;
+  getUrl: (agentName: string, resourceField?: string) => Promise<{ url: string }>;
   submitCallback: (code: string, state: string) => Promise<{ ok: boolean }>;
   revoke: (agentName: string, label?: string) => Promise<{ ok: boolean; notifications?: string[] }>;
 }

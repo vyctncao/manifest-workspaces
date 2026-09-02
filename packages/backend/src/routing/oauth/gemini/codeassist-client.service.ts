@@ -61,12 +61,15 @@ export class CodeAssistClientService {
    * One-time-per-user setup. Returns the project id that must be sent on
    * every chat request thereafter. Idempotent — safe to call repeatedly.
    */
-  async onboard(accessToken: string): Promise<OnboardResult> {
-    const loaded = await this.load(accessToken);
+  async onboard(accessToken: string, googleCloudProject?: string): Promise<OnboardResult> {
+    const loaded = await this.load(accessToken, googleCloudProject);
     const existingProject = loaded.cloudaicompanionProject;
     const currentTierId = loaded.currentTier?.id;
-    if (existingProject && currentTierId) {
-      return { projectId: existingProject, tierId: currentTierId };
+    if (currentTierId && (existingProject || googleCloudProject)) {
+      return {
+        projectId: existingProject ?? googleCloudProject!,
+        tierId: currentTierId,
+      };
     }
     // No project yet — pick the default-allowed tier and onboard. For
     // personal accounts this is `free-tier`.
@@ -76,7 +79,8 @@ export class CodeAssistClientService {
     }
     const lro = await this.callJson<LongRunningOperation>(':onboardUser', accessToken, {
       tierId: tier.id,
-      metadata: CLIENT_METADATA,
+      ...(googleCloudProject ? { cloudaicompanionProject: googleCloudProject } : {}),
+      metadata: this.metadata(googleCloudProject),
     });
     const completed = await this.waitForOperation(lro, accessToken);
     const onboardedProject = completed.response?.cloudaicompanionProject?.id;
@@ -87,10 +91,10 @@ export class CodeAssistClientService {
     // Code Assist can finish onboarding without embedding the assigned project
     // in the operation response. Gemini CLI treats loadCodeAssist as the source
     // of truth, so reload before concluding that no project was assigned.
-    const reloaded = await this.load(accessToken);
-    if (reloaded.cloudaicompanionProject) {
+    const reloaded = await this.load(accessToken, googleCloudProject);
+    if (reloaded.cloudaicompanionProject || googleCloudProject) {
       return {
-        projectId: reloaded.cloudaicompanionProject,
+        projectId: reloaded.cloudaicompanionProject ?? googleCloudProject!,
         tierId: reloaded.currentTier?.id ?? tier.id,
       };
     }
@@ -118,10 +122,17 @@ export class CodeAssistClientService {
     return current;
   }
 
-  private load(accessToken: string): Promise<LoadCodeAssistResponse> {
+  private load(accessToken: string, googleCloudProject?: string): Promise<LoadCodeAssistResponse> {
     return this.callJson<LoadCodeAssistResponse>(':loadCodeAssist', accessToken, {
-      metadata: CLIENT_METADATA,
+      ...(googleCloudProject ? { cloudaicompanionProject: googleCloudProject } : {}),
+      metadata: this.metadata(googleCloudProject),
     });
+  }
+
+  private metadata(googleCloudProject?: string) {
+    return googleCloudProject
+      ? { ...CLIENT_METADATA, duetProject: googleCloudProject }
+      : CLIENT_METADATA;
   }
 
   private async callJson<T>(

@@ -314,6 +314,14 @@ describe('oauth API client', () => {
     expect(url).toContain('agentName=my-agent');
   });
 
+  it('getGeminiOAuthUrl forwards a trimmed Google Cloud project ID', async () => {
+    const fetchMock = setupFetch({ url: 'https://accounts.google.com/o/oauth2/v2/auth?...' });
+    await oauth.getGeminiOAuthUrl('my-agent', '  my-project-123  ');
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('agentName=my-agent');
+    expect(url).toContain('projectId=my-project-123');
+  });
+
   it('submitGeminiOAuthCallback POSTs code and state to the callback endpoint', async () => {
     const fetchMock = setupFetch({ ok: true });
     await oauth.submitGeminiOAuthCallback('auth-code-123', 'state-abc');

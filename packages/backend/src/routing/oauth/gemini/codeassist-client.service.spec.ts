@@ -54,6 +54,40 @@ describe('CodeAssistClientService', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it('uses a supplied Google Cloud project when Code Assist has a tier but omits a project', async () => {
+      fetchMock.mockResolvedValue(mockOkResponse({ currentTier: { id: 'standard-tier' } }));
+
+      await expect(svc.onboard('access-token', 'my-project-123')).resolves.toEqual({
+        projectId: 'my-project-123',
+        tierId: 'standard-tier',
+      });
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+      expect(body).toEqual({
+        cloudaicompanionProject: 'my-project-123',
+        metadata: expect.objectContaining({ duetProject: 'my-project-123' }),
+      });
+    });
+
+    it('sends a supplied Google Cloud project through onboarding', async () => {
+      fetchMock
+        .mockResolvedValueOnce(
+          mockOkResponse({ allowedTiers: [{ id: 'standard-tier', isDefault: true }] }),
+        )
+        .mockResolvedValueOnce(mockOkResponse({ done: true, response: {} }))
+        .mockResolvedValueOnce(mockOkResponse({ currentTier: { id: 'standard-tier' } }));
+
+      await expect(svc.onboard('access-token', 'my-project-123')).resolves.toEqual({
+        projectId: 'my-project-123',
+        tierId: 'standard-tier',
+      });
+      const onboardBody = JSON.parse(fetchMock.mock.calls[1][1].body as string);
+      expect(onboardBody).toEqual({
+        tierId: 'standard-tier',
+        cloudaicompanionProject: 'my-project-123',
+        metadata: expect.objectContaining({ duetProject: 'my-project-123' }),
+      });
+    });
+
     it('calls onboardUser when loadCodeAssist returns no project and picks the default tier', async () => {
       fetchMock
         .mockResolvedValueOnce(

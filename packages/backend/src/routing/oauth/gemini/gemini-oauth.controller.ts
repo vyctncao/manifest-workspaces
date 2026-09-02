@@ -45,9 +45,17 @@ export class GeminiOauthController {
     @Query('agentName') agentName: string,
     @TenantCtx() ctx: TenantContext,
     @Req() req: Request,
+    @Query('projectId') projectId?: string,
   ) {
     if (!agentName) {
       throw new HttpException('agentName query parameter is required', HttpStatus.BAD_REQUEST);
+    }
+    const googleCloudProject = projectId?.trim() || undefined;
+    if (googleCloudProject && /^\d+$/.test(googleCloudProject)) {
+      throw new HttpException(
+        'Use the string Google Cloud project ID, not the numeric project number.',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     const agent = await this.resolveAgent.resolve(ctx.tenantId, agentName);
     // Prefer the operator-configured BETTER_AUTH_URL so a forged Host header
@@ -55,12 +63,20 @@ export class GeminiOauthController {
     const trustedBackendUrl = this.configService.get<string>('BETTER_AUTH_URL');
     const backendUrl = trustedBackendUrl || `${req.protocol}://${req.get('host')}`;
     try {
-      const url = await this.oauthService.generateAuthorizationUrl(
-        agent.id,
-        agent.tenant_id,
-        backendUrl,
-        ctx.userId,
-      );
+      const url = googleCloudProject
+        ? await this.oauthService.generateAuthorizationUrl(
+            agent.id,
+            agent.tenant_id,
+            backendUrl,
+            ctx.userId,
+            googleCloudProject,
+          )
+        : await this.oauthService.generateAuthorizationUrl(
+            agent.id,
+            agent.tenant_id,
+            backendUrl,
+            ctx.userId,
+          );
       return { url };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to start OAuth callback server';

@@ -74,6 +74,49 @@ describe('GeminiOauthController', () => {
       expect(result).toEqual({ url: 'https://accounts.google.com/o/oauth2/v2/auth?...' });
     });
 
+    it('forwards a trimmed Google Cloud project ID into the OAuth flow', async () => {
+      resolveAgent.resolve.mockResolvedValue({ id: 'agent-id-1', tenant_id: 'tenant-1' } as never);
+      oauthService.generateAuthorizationUrl.mockResolvedValue(
+        'https://accounts.google.com/o/oauth2/v2/auth?...',
+      );
+      const req = {
+        protocol: 'http',
+        get: jest.fn().mockReturnValue('localhost:3001'),
+      } as unknown as Request;
+
+      await controller.authorize(
+        'my-agent',
+        { tenantId: 'tenant-1', userId: 'user-1' } as never,
+        req,
+        '  my-project-123  ',
+      );
+
+      expect(oauthService.generateAuthorizationUrl).toHaveBeenCalledWith(
+        'agent-id-1',
+        'tenant-1',
+        'http://localhost:3001',
+        'user-1',
+        'my-project-123',
+      );
+    });
+
+    it('rejects a numeric Google Cloud project number', async () => {
+      const req = {
+        protocol: 'http',
+        get: jest.fn().mockReturnValue('localhost:3001'),
+      } as unknown as Request;
+
+      await expect(
+        controller.authorize(
+          'my-agent',
+          { tenantId: 'tenant-1', userId: 'user-1' } as never,
+          req,
+          '123456789',
+        ),
+      ).rejects.toThrow('Use the string Google Cloud project ID');
+      expect(resolveAgent.resolve).not.toHaveBeenCalled();
+    });
+
     it('throws 400 when agentName is missing', async () => {
       const req = {
         protocol: 'http',

@@ -62,8 +62,13 @@ export class GeminiOauthService extends RedirectPkceOauthBaseService {
    * lives in `blob.u` and is sent on every chat request. Idempotent: a
    * re-sign-in just returns the same project.
    */
-  protected async enrichBlob(blob: OAuthTokenBlob): Promise<OAuthTokenBlob> {
-    const { projectId } = await this.codeAssist.onboard(blob.t);
+  protected async enrichBlob(
+    blob: OAuthTokenBlob,
+    googleCloudProject?: string,
+  ): Promise<OAuthTokenBlob> {
+    const { projectId } = googleCloudProject
+      ? await this.codeAssist.onboard(blob.t, googleCloudProject)
+      : await this.codeAssist.onboard(blob.t);
     return { ...blob, u: projectId };
   }
 }
