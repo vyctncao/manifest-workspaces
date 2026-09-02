@@ -2215,6 +2215,28 @@ describe('Anthropic Adapter', () => {
       });
     });
 
+    it('canonicalizes nested adaptive thinking and drops its manual budget', () => {
+      const result = applyAnthropicMessagesMutations({
+        messages: [{ role: 'user', content: 'hi' }],
+        thinking: { adaptive: { budget_tokens: 8192, display: 'omitted' } },
+      });
+
+      expect(result.thinking).toEqual({ type: 'adaptive', display: 'omitted' });
+    });
+
+    it('drops a nested adaptive payload from an already typed adaptive config', () => {
+      const result = applyAnthropicMessagesMutations({
+        messages: [{ role: 'user', content: 'hi' }],
+        thinking: {
+          type: 'adaptive',
+          display: 'summarized',
+          adaptive: { budget_tokens: 8192, display: 'omitted' },
+        },
+      });
+
+      expect(result.thinking).toEqual({ type: 'adaptive', display: 'summarized' });
+    });
+
     it('preserves the budget for native manual thinking', () => {
       const thinking = { type: 'enabled', budget_tokens: 8192 };
 
@@ -2418,6 +2440,33 @@ describe('Anthropic Adapter', () => {
       expect(countCacheControls(body)).toBe(2);
     });
 
+    it('does not add automatic cache_control when any tool is deferred', () => {
+      const body = {
+        messages: [{ role: 'user', content: 'hi' }],
+        tools: [
+          { name: 'eager', input_schema: { type: 'object' } },
+          { name: 'deferred', defer_loading: true, input_schema: { type: 'object' } },
+        ],
+      };
+
+      applyAnthropicAutomaticCacheControl(body);
+
+      expect((body as Record<string, unknown>).cache_control).toBeUndefined();
+      expect(countCacheControls(body)).toBe(0);
+    });
+
+    it('removes caller-supplied automatic cache_control when a tool is deferred', () => {
+      const body = {
+        cache_control: { type: 'ephemeral' },
+        messages: [{ role: 'user', content: 'hi' }],
+        tools: [{ name: 'deferred', defer_loading: true, input_schema: { type: 'object' } }],
+      };
+
+      applyAnthropicAutomaticCacheControl(body);
+
+      expect((body as Record<string, unknown>).cache_control).toBeUndefined();
+    });
+
     it('keeps caller-supplied top-level automatic cache_control', () => {
       const existing = { type: 'ephemeral' };
       const body = {
@@ -2471,6 +2520,25 @@ describe('Anthropic Adapter', () => {
 
       expect((body as Record<string, unknown>).cache_control).toBeUndefined();
       expect(countCacheControls(body)).toBe(4);
+    });
+
+    it('never adds cache_control directly to a deferred tool', () => {
+      const result = applyAnthropicMessagesMutations({
+        messages: [{ role: 'user', content: 'hi' }],
+        tools: [
+          { name: 'eager', input_schema: { type: 'object' } },
+          {
+            name: 'deferred',
+            defer_loading: true,
+            cache_control: { type: 'ephemeral' },
+            input_schema: { type: 'object' },
+          },
+        ],
+      });
+      const tools = result.tools as Array<Record<string, unknown>>;
+
+      expect(tools[0].cache_control).toBeUndefined();
+      expect(tools[1].cache_control).toBeUndefined();
     });
 
     it('defaults max_tokens to 4096 when not provided', () => {

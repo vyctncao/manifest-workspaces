@@ -60,10 +60,21 @@ function shouldForwardAnthropicThinking(thinking: unknown, model: string): boole
 }
 
 function normalizeAnthropicThinking(thinking: unknown): unknown {
-  if (!isObjectRecord(thinking) || thinking.type !== 'adaptive' || !('budget_tokens' in thinking)) {
-    return thinking;
-  }
-  const normalized = { ...thinking };
+  if (!isObjectRecord(thinking)) return thinking;
+
+  // Claude clients have emitted both the canonical `{ type: 'adaptive' }`
+  // shape and a short-lived nested `{ adaptive: { ... } }` shape. Anthropic
+  // only accepts the canonical form. Manual budgets are not valid for
+  // adaptive thinking on current models, whether top-level or nested.
+  const nestedAdaptive = isObjectRecord(thinking.adaptive) ? thinking.adaptive : null;
+  if (thinking.type !== 'adaptive' && !nestedAdaptive) return thinking;
+
+  const normalized: Record<string, unknown> = {
+    ...(nestedAdaptive ?? {}),
+    ...thinking,
+    type: 'adaptive',
+  };
+  delete normalized.adaptive;
   delete normalized.budget_tokens;
   return normalized;
 }
@@ -111,16 +122,34 @@ function hasOneHourCacheControl(value: unknown): boolean {
   return children.some(hasOneHourCacheControl);
 }
 
+function isDeferredTool(block: Record<string, unknown> | undefined): boolean {
+  return block?.defer_loading === true;
+}
+
 function tryAddCacheControl(
-  block: { cache_control?: unknown } | undefined,
+  block: { cache_control?: unknown; defer_loading?: unknown } | undefined,
   budget: { remaining: number },
 ): void {
-  if (!block || block.cache_control || budget.remaining <= 0) return;
+  if (!block || isDeferredTool(block) || block.cache_control || budget.remaining <= 0) return;
   block.cache_control = CACHE;
   budget.remaining -= 1;
 }
 
+function hasDeferredTools(body: Record<string, unknown>): boolean {
+  return (
+    Array.isArray(body.tools) &&
+    (body.tools as unknown[]).some((tool) => isObjectRecord(tool) && isDeferredTool(tool))
+  );
+}
+
 export function applyAnthropicAutomaticCacheControl(body: Record<string, unknown>): void {
+  if (hasDeferredTools(body)) {
+    // Automatic caching selects the last cacheable block. Anthropic rejects
+    // that request when the selected block is a deferred tool, even when the
+    // cache_control marker is top-level rather than attached to the tool.
+    delete body.cache_control;
+    return;
+  }
   if (body.cache_control !== undefined) return;
   if (countCacheControlBlocks(body) >= MAX_CACHE_CONTROL_BLOCKS) return;
   // Anthropic rejects a default five-minute automatic breakpoint when the
@@ -508,7 +537,11 @@ export function applyAnthropicMessagesMutations(
   // doesn't bleed back into the inbound body. Server tools' `type` tag and
   // custom tools' `input_schema` both survive unchanged.
   if (Array.isArray(body.tools)) {
-    const tools = (body.tools as Array<Record<string, unknown>>).map((t) => ({ ...t }));
+    const tools = (body.tools as Array<Record<string, unknown>>).map((t) => {
+      const tool = { ...t };
+      if (isDeferredTool(tool)) delete tool.cache_control;
+      return tool;
+    });
     tryAddCacheControl(tools[tools.length - 1], cacheBudget);
     result.tools = tools;
   }
