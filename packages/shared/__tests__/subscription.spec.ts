@@ -323,7 +323,8 @@ describe('getSubscriptionKnownModels', () => {
     const models = getSubscriptionKnownModels('anthropic');
     expect(models).toContain('claude-fable-5');
     expect(models).toContain('claude-fable-5-1');
-    expect(models).toContain('claude-opus-5-1');
+    expect(models).not.toContain('claude-opus-5-1');
+    expect(models).toContain('claude-opus-5');
     expect(models).toContain('claude-opus-4');
     expect(models).toContain('claude-sonnet-4');
     // claude-sonnet-5 (launched 2026-06-30) is served on the Claude plan.

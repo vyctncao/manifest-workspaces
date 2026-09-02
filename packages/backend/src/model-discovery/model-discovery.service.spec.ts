@@ -1695,7 +1695,7 @@ describe('ModelDiscoveryService', () => {
         'claude-fable-5-1',
         'claude-haiku-4',
         'claude-opus-4',
-        'claude-opus-5-1',
+        'claude-opus-5',
         'claude-sonnet-4',
         'claude-sonnet-5',
       ]);
@@ -2017,7 +2017,7 @@ describe('ModelDiscoveryService', () => {
         'claude-fable-5-1',
         'claude-haiku-4-20260301',
         'claude-opus-4-20260301',
-        'claude-opus-5-1',
+        'claude-opus-5',
         'claude-sonnet-4-20260301',
         'claude-sonnet-5',
       ]);
@@ -2219,7 +2219,7 @@ describe('ModelDiscoveryService', () => {
         'claude-fable-5-1',
         'claude-haiku-4',
         'claude-opus-4',
-        'claude-opus-5-1',
+        'claude-opus-5',
         'claude-sonnet-4',
         'claude-sonnet-5',
       ]);
@@ -2601,7 +2601,7 @@ describe('ModelDiscoveryService', () => {
         'claude-fable-5-1',
         'claude-haiku-4',
         'claude-opus-4',
-        'claude-opus-5-1',
+        'claude-opus-5',
         'claude-sonnet-4',
         'claude-sonnet-5',
       ]);
