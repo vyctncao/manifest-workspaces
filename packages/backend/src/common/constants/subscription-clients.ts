@@ -22,7 +22,30 @@ export const CODEX_CLI_ORIGINATOR = 'codex_cli_rs';
 export const CODEX_CLI_USER_AGENT = 'codex_cli_rs/0.0.0 (Unknown 0; unknown) unknown';
 
 export const CLAUDE_CODE_VERSION = '2.1.258';
-export const CLAUDE_CODE_USER_AGENT = `claude-cli/${CLAUDE_CODE_VERSION} (external, sdk-cli)`;
+const CLAUDE_CODE_PACKAGE_URL = 'https://registry.npmjs.org/@anthropic-ai%2fclaude-code/latest';
+const VERSION_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const VERSION_FETCH_TIMEOUT_MS = 10_000;
+let currentClaudeCodeVersion = CLAUDE_CODE_VERSION;
+
+export function getClaudeCodeVersion(): string {
+  return currentClaudeCodeVersion;
+}
+
+export async function refreshClaudeCodeVersion(): Promise<string | null> {
+  try {
+    const response = await fetch(CLAUDE_CODE_PACKAGE_URL, {
+      signal: AbortSignal.timeout(VERSION_FETCH_TIMEOUT_MS),
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { version?: unknown };
+    if (typeof body.version !== 'string' || !VERSION_RE.test(body.version)) return null;
+    currentClaudeCodeVersion = body.version;
+    return currentClaudeCodeVersion;
+  } catch {
+    return null;
+  }
+}
 export const CLAUDE_CODE_STAINLESS_PACKAGE_VERSION = '0.80.0';
 export const CLAUDE_CODE_STAINLESS_RUNTIME_VERSION = 'v24.14.0';
 export const CLAUDE_CODE_BETA_FLAGS = [
@@ -64,7 +87,7 @@ export const buildClaudeCodeSubscriptionHeaders = (apiKey: string): Record<strin
   'anthropic-version': '2023-06-01',
   'anthropic-beta': CLAUDE_CODE_BETA_FLAGS,
   'anthropic-dangerous-direct-browser-access': 'true',
-  'user-agent': CLAUDE_CODE_USER_AGENT,
+  'user-agent': `claude-cli/${getClaudeCodeVersion()} (external, sdk-cli)`,
   'x-app': 'cli',
   'x-stainless-arch': claudeCodeStainlessArch(),
   'x-stainless-helper-method': 'stream',

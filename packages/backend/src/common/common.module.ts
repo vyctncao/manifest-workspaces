@@ -9,6 +9,7 @@ import { SuperadminService } from './services/superadmin.service';
 import { TenantMember } from '../entities/tenant-member.entity';
 import { UserCacheInterceptor } from './interceptors/user-cache.interceptor';
 import { AgentCacheInterceptor } from './interceptors/agent-cache.interceptor';
+import { ClaudeCodeClientVersionService } from './services/claude-code-client-version.service';
 
 @Global()
 @Module({
@@ -20,6 +21,7 @@ import { AgentCacheInterceptor } from './interceptors/agent-cache.interceptor';
     TenantCacheService,
     UserCacheInterceptor,
     AgentCacheInterceptor,
+    ClaudeCodeClientVersionService,
   ],
   exports: [
     IngestEventBusService,
@@ -28,6 +30,7 @@ import { AgentCacheInterceptor } from './interceptors/agent-cache.interceptor';
     TenantCacheService,
     UserCacheInterceptor,
     AgentCacheInterceptor,
+    ClaudeCodeClientVersionService,
   ],
 })
 export class CommonModule {}

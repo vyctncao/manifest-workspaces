@@ -510,6 +510,13 @@ describe('ModelDiscoveryService', () => {
       expect(fetcher.fetch).toHaveBeenCalledWith('openai', 'decrypted-key', 'api_key', undefined, {
         forceRefresh: true,
       });
+      expect(fetcher.fetch).toHaveBeenCalledWith(
+        'anthropic',
+        'decrypted-key',
+        'subscription',
+        undefined,
+        { forceRefresh: true },
+      );
     });
 
     it('continues refreshing when one provider fails', async () => {
@@ -1664,7 +1671,7 @@ describe('ModelDiscoveryService', () => {
         'claude-fable-5-1',
         'claude-haiku-4',
         'claude-opus-4',
-        'claude-opus-5',
+        'claude-opus-5-1',
         'claude-sonnet-4',
         'claude-sonnet-5',
       ]);
@@ -1986,7 +1993,7 @@ describe('ModelDiscoveryService', () => {
         'claude-fable-5-1',
         'claude-haiku-4-20260301',
         'claude-opus-4-20260301',
-        'claude-opus-5',
+        'claude-opus-5-1',
         'claude-sonnet-4-20260301',
         'claude-sonnet-5',
       ]);
@@ -2188,7 +2195,7 @@ describe('ModelDiscoveryService', () => {
         'claude-fable-5-1',
         'claude-haiku-4',
         'claude-opus-4',
-        'claude-opus-5',
+        'claude-opus-5-1',
         'claude-sonnet-4',
         'claude-sonnet-5',
       ]);
@@ -2570,7 +2577,7 @@ describe('ModelDiscoveryService', () => {
         'claude-fable-5-1',
         'claude-haiku-4',
         'claude-opus-4',
-        'claude-opus-5',
+        'claude-opus-5-1',
         'claude-sonnet-4',
         'claude-sonnet-5',
       ]);

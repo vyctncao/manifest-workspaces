@@ -218,7 +218,8 @@ export class ModelDiscoveryService {
     let raw: DiscoveredModel[];
 
     const useCuratedSubscriptionModels =
-      provider.auth_type === 'subscription' && (!apiKey || lowerProvider === 'anthropic');
+      provider.auth_type === 'subscription' &&
+      (!apiKey || (lowerProvider === 'anthropic' && !options.forceRefresh));
 
     const fetchProviderModels = () =>
       options.forceRefresh
@@ -242,8 +243,9 @@ export class ModelDiscoveryService {
     };
 
     // Subscription providers without a token use curated fallback. Anthropic
-    // subscription discovery is also static so connecting Claude Code does
-    // not spend live /models or /messages calls before the first real request.
+    // subscription discovery stays static during ordinary reads so connecting
+    // Claude Code does not probe upstream. Scheduled/manual forced refreshes do
+    // fetch Anthropic's live catalog, then fall back to curated models on error.
     if (useCuratedSubscriptionModels) {
       raw = buildSubscriptionFallbackModels(this.pricingSync, provider.provider);
       if (raw.length > 0) {
