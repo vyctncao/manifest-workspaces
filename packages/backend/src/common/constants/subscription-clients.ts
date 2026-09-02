@@ -8,6 +8,10 @@
  * subset. Bump `CODEX_CLI_VERSION` to track the current `openai/codex` CLI
  * release. The user-agent string is not enforced, so it stays synthetic.
  *
+ * Claude (`https://api.anthropic.com/...`): model gates validate the Claude
+ * Code version embedded in the user-agent. Keep it at or above the minimum
+ * required by the newest curated subscription model.
+ *
  * Copilot (`https://api.githubcopilot.com/...`): GitHub validates the
  * `Editor-Version` and `Editor-Plugin-Version` headers; both are bumped
  * together when GitHub deprecates an older pair.
@@ -17,7 +21,8 @@ export const CODEX_CLI_VERSION = '0.128.0';
 export const CODEX_CLI_ORIGINATOR = 'codex_cli_rs';
 export const CODEX_CLI_USER_AGENT = 'codex_cli_rs/0.0.0 (Unknown 0; unknown) unknown';
 
-export const CLAUDE_CODE_USER_AGENT = 'claude-cli/2.1.92 (external, sdk-cli)';
+export const CLAUDE_CODE_VERSION = '2.1.258';
+export const CLAUDE_CODE_USER_AGENT = `claude-cli/${CLAUDE_CODE_VERSION} (external, sdk-cli)`;
 export const CLAUDE_CODE_STAINLESS_PACKAGE_VERSION = '0.80.0';
 export const CLAUDE_CODE_STAINLESS_RUNTIME_VERSION = 'v24.14.0';
 export const CLAUDE_CODE_BETA_FLAGS = [

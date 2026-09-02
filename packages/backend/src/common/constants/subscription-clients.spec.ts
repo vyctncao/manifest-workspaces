@@ -1,5 +1,6 @@
 import {
   buildClaudeCodeSubscriptionHeaders,
+  CLAUDE_CODE_VERSION,
   claudeCodeStainlessArch,
   claudeCodeStainlessOs,
 } from './subscription-clients';
@@ -31,6 +32,8 @@ describe('buildClaudeCodeSubscriptionHeaders', () => {
     const headers = buildClaudeCodeSubscriptionHeaders('key-123');
     expect(headers.Authorization).toBe('Bearer key-123');
     expect(headers['x-app']).toBe('cli');
+    expect(headers['user-agent']).toBe(`claude-cli/${CLAUDE_CODE_VERSION} (external, sdk-cli)`);
+    expect(CLAUDE_CODE_VERSION).toBe('2.1.258');
     expect(headers['x-stainless-arch']).toBeDefined();
     expect(headers['x-stainless-os']).toBeDefined();
   });
